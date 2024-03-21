@@ -1,11 +1,14 @@
 {
   "scripts": {
+    "dev": "npm run serve",
+    "serve": "nodemon src/main.ts",
     "start": "(clear || cls) && ts-node ./src/main.ts",
     "ingest": "(clear || cls) && ts-node ./src/ingestion/ingest.ts",
     "all": "npm run ingest && npm run start"
   },
   "devDependencies": {
     "@types/node": "^20.11.27",
+    "nodemon": "^3.1.0",
     "typescript": "^5.4.2"
   },
   "dependencies": {
