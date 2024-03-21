@@ -1,7 +1,6 @@
 {
   "scripts": {
     "start": "(clear || cls) && ts-node ./src/main.ts",
-    "user": "(clear || cls) && ts-node ./src/user.ts",
     "ingest": "(clear || cls) && ts-node ./src/ingestion/ingest.ts",
     "all": "npm run ingest && npm run start"
   },
