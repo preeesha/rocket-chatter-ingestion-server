@@ -1,15 +1,24 @@
 import neo4j, { Driver } from "neo4j-driver"
+import {
+	NEO4J_DATABASE,
+	NEO4J_PASSWORD,
+	NEO4J_URI,
+	NEO4J_USER,
+} from "../constants"
 
-// Replace with your Neo4j connection details
-const uri = "bolt://localhost:7687"
-// const uri = "bolt://3.237.79.175:7687"
-const user = "neo4j"
-const password = "12345678"
-
+// ------------------------------------------------------------------------------------------------
 // Create a driver instance
-const driver: Driver = neo4j.driver(uri, neo4j.auth.basic(user, password))
+// ------------------------------------------------------------------------------------------------
 
-export const db = driver.session({ database: "neo4j" })
+const driver: Driver = neo4j.driver(
+	NEO4J_URI,
+	neo4j.auth.basic(NEO4J_USER, NEO4J_PASSWORD)
+)
+export const db = driver.session({ database: NEO4J_DATABASE })
+
+// ------------------------------------------------------------------------------------------------
+// Helper functions
+// ------------------------------------------------------------------------------------------------
 
 export async function verifyConnectivity() {
 	return driver.verifyConnectivity()
@@ -19,3 +28,5 @@ export function closeDBConnection() {
 	db.close()
 	driver.close()
 }
+
+// ------------------------------------------------------------------------------------------------

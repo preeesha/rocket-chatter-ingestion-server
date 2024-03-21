@@ -1,155 +1,129 @@
-import { writeFileSync } from "fs"
-import { Node, Project, ts } from "ts-morph"
-import { DBNode } from "../database/node.types"
-import { generateNodeID, makeDBNode, notFoundKindNames } from "./node"
+import cliProgress from "cli-progress"
+import { Transaction } from "neo4j-driver"
+import { DBNode } from "../core/dbNode"
+import { db, verifyConnectivity } from "../core/neo4j"
 
-const nodes: Record<string, DBNode> = {}
-
-function writeJSON(file: string, data: any) {
-	writeFileSync(`${file}.data.json`, JSON.stringify(data, null, 2))
-}
-
-function moveUpWhileParentFound(
-	node: Node,
-	allowedParents: ts.SyntaxKind[]
-): Node<ts.FunctionDeclaration> | undefined {
-	const parent = node.getParent()
-	if (!parent) {
-		return undefined // Reached the top of the file
+namespace Helpers {
+	export function prepareProgressBar(total: number) {
+		const bar = new cliProgress.Bar(
+			{
+				etaBuffer: 1,
+				forceRedraw: true,
+				fps: 60,
+				format:
+					"Inserting nodes [{bar}] {percentage}% | {value}/{total} | {duration}s",
+			},
+			cliProgress.Presets.legacy
+		)
+		bar.start(total, 0)
+		return bar
 	}
 
-	if (allowedParents.includes(parent.getKind())) {
-		return parent as Node<ts.FunctionDeclaration>
+	export async function insertNode(tx: Transaction, node: DBNode) {
+		const query = `CREATE (n:Node $node) RETURN n`
+		try {
+			await tx.run(query, { node })
+		} catch (e) {
+			console.error(e)
+		}
 	}
 
-	return moveUpWhileParentFound(parent, allowedParents)
+	export async function establishRelation(
+		tx: Transaction,
+		sourceID: string,
+		targetID: string,
+		relation: string
+	) {
+		const query = [
+			`MATCH (n { id: $sourceID })`,
+			`MATCH (m { id: $targetID })`,
+			`CREATE (n)-[:${relation}]->(m)\n`,
+		].join("\n")
+		try {
+			await tx.run(query, { sourceID, targetID })
+		} catch (e) {
+			console.error(e)
+		}
+	}
 }
 
-const kindNames = new Set<string>()
-const unhandledRefKinds = new Set<string>()
+namespace Algorithms {
+	export async function emptyDB(tx: Transaction, progressBar: cliProgress.Bar) {
+		const query = `MATCH (n) DETACH DELETE n`
+		try {
+			await tx.run(query)
+		} catch {
+			console.error("Failed to empty DB")
+		}
 
-export async function processCodebase(path: string) {
-	const project = new Project({ skipAddingFilesFromTsConfig: true })
-	project.addSourceFilesAtPaths(path)
+		progressBar.increment()
+	}
 
-	await Promise.all(
-		project.getSourceFiles().map(async (sourceFile) => {
-			const fileNode = await makeDBNode(sourceFile, true)
-			nodes[fileNode.id] = fileNode
+	export async function insertNodes(
+		tx: Transaction,
+		nodes: DBNode[],
+		progressBar: cliProgress.Bar
+	) {
+		await Promise.all(
+			nodes.map(async (node) => {
+				await Helpers.insertNode(tx, node)
+				progressBar.increment()
+			})
+		)
+	}
 
-			const allNodes = [
-				...sourceFile.getFunctions(),
-				...sourceFile.getTypeAliases(),
-				...sourceFile.getEnums(),
-				...sourceFile.getInterfaces(),
-				...sourceFile.getClasses(),
-				...sourceFile.getNamespaces(),
-			]
-
-			await Promise.all(
-				allNodes.map(async (node) => {
-					const fnNode = await makeDBNode(node)
-					const fnID = fnNode.id
-					nodes[fnID] = fnNode
-					nodes[fnID].relations.push({
-						relation: "IN_FILE",
-						target: fileNode.id,
-					})
-
-					// Find call expressions for this function
-					node.findReferencesAsNodes().forEach((ref) => {
-						kindNames.add(ref.getKindName())
-						switch (ref.getKind()) {
-							case ts.SyntaxKind.ArrowFunction:
-							case ts.SyntaxKind.FunctionDeclaration:
-							case ts.SyntaxKind.FunctionExpression: {
-								const nodeLocation = ref.getFirstAncestorByKind(
-									ts.SyntaxKind.CallExpression
-								)
-								if (!nodeLocation) return
-
-								const parent = moveUpWhileParentFound(nodeLocation, [
-									ts.SyntaxKind.FunctionDeclaration,
-									ts.SyntaxKind.ArrowFunction,
-									ts.SyntaxKind.SourceFile,
-								])
-								if (!parent) return
-
-								const parentID = generateNodeID(parent!)
-
-								const isAlreadyRelated = nodes[fnID].relations.some((rel) => {
-									return rel.target === parentID
-								})
-								if (isAlreadyRelated) return
-
-								nodes[fnID].relations.push({
-									relation: "CALLED_BY",
-									target: parentID,
-								})
-
-								break
-							}
-
-							case ts.SyntaxKind.Identifier: {
-								const nodeLocation = ref.getFirstAncestor()
-								if (!nodeLocation) return
-
-								const parent = moveUpWhileParentFound(nodeLocation, [
-									ts.SyntaxKind.TypeAliasDeclaration,
-									ts.SyntaxKind.FunctionDeclaration,
-									ts.SyntaxKind.ArrowFunction,
-									ts.SyntaxKind.SourceFile,
-								])
-								if (!parent) return
-
-								const parentID = generateNodeID(parent!)
-								const isAlreadyRelated = nodes[fnID].relations.some((rel) => {
-									return rel.target === parentID
-								})
-								if (isAlreadyRelated) return
-
-								nodes[fnID].relations.push({
-									relation: "USED_IN",
-									target: parentID,
-								})
-
-								break
-							}
-
-							default: {
-								unhandledRefKinds.add(ref.getKindName())
-								console.log("Unhandled ref", ref.getKindName())
-							}
-						}
-					})
+	export async function establishRelations(
+		tx: Transaction,
+		nodes: DBNode[],
+		progressBar: cliProgress.Bar
+	) {
+		const jobs: Promise<any>[] = []
+		for (const node of nodes) {
+			for (const relation of node.relations) {
+				const job = Helpers.establishRelation(
+					tx,
+					node.id,
+					relation.target,
+					relation.relation
+				).then(() => {
+					progressBar.increment()
 				})
-			)
-		})
-	)
+				jobs.push(job)
+			}
+		}
+		await Promise.all(jobs)
+	}
 }
 
-async function ingest() {
-	console.log("🕒 Ingesting")
+export async function insertDataIntoDB(data: Record<string, DBNode>) {
+	console.log(await verifyConnectivity())
 
-	const DIR = [
-		//
-		"~/Desktop/Rocket.Chat",
-		"./project",
-	]
-	await processCodebase(`${DIR.at(-1)!}/**/*.{ts,tsx}`)
-	writeJSON("ingested", nodes)
+	console.log("🕒 Inserting")
 
-	console.log()
-	console.log()
-	console.log("UNIQUE KIND NAMES:\n", kindNames)
-	console.log()
-	console.log("UNHANDLED REF KIND NAMES:\n", unhandledRefKinds)
-	console.log()
-	console.log("UNHANDLED KIND NAMES:\n", notFoundKindNames)
-	console.log()
-	console.log()
+	const tx = db.beginTransaction()
+	const nodes = Object.values(data)
+	const totalOperations =
+		nodes.length + nodes.map((x) => x.relations).flat().length + 1
 
-	console.log("✅ Ingested")
+	// -----------------------------------------------------------------------------------
+
+	const progressBar = Helpers.prepareProgressBar(totalOperations)
+
+	await Algorithms.emptyDB(tx, progressBar)
+	await Algorithms.insertNodes(tx, nodes, progressBar)
+	await Algorithms.establishRelations(tx, nodes, progressBar)
+
+	progressBar.stop()
+
+	// -----------------------------------------------------------------------------------
+
+	try {
+		console.log("Committing transaction")
+		await tx.commit()
+	} catch (e) {
+		console.error(e)
+		await tx.rollback()
+	}
+
+	console.log("✅ Inserted")
 }
-
-ingest()

@@ -1,11 +1,14 @@
-import { readFileSync } from "fs"
-import { closeDBConnection } from "./core/neo4j"
-import { insertDataIntoDB } from "./database/node"
+import cors from "cors"
+import express from "express"
+import { ingestRoute } from "./routes/ingest"
 
-async function main() {
-	await insertDataIntoDB(
-		JSON.parse(readFileSync("ingested.data.json", "utf-8"))
-	).then(() => closeDBConnection())
-}
+const app = express()
+app.use(express.json())
+app.use(express.urlencoded({ extended: true }))
+app.use(cors({ origin: "*" }))
 
-main()
+app.post("/ingest", ingestRoute)
+
+app.listen(4000, () =>
+	console.log("Server running on port http://localhost:4000")
+)
