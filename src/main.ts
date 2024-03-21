@@ -1,5 +1,6 @@
 import cors from "cors"
 import express from "express"
+import { PORT } from "./constants"
 import { ingestRoute } from "./routes/ingest"
 
 const app = express()
@@ -9,6 +10,6 @@ app.use(cors({ origin: "*" }))
 
 app.post("/ingest", ingestRoute)
 
-app.listen(4000, () =>
-	console.log("Server running on port http://localhost:4000")
+app.listen(PORT, () =>
+	console.log(`🚀 Server running on port http://localhost:${PORT}`)
 )
