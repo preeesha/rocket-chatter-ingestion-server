@@ -106,7 +106,7 @@ namespace Algorithms {
 	}
 
 	export async function processSourceFile(sourceFile: SourceFile) {
-		const fileNode = await DBNode.fromTreeNode(new TreeNode(sourceFile))
+		const fileNode = await DBNode.fromTreeNode(new TreeNode(sourceFile, true))
 		nodes[fileNode.id] = fileNode
 
 		const allNodes = [
