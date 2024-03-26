@@ -3,7 +3,7 @@ import {
 	NEO4J_DATABASE,
 	NEO4J_PASSWORD,
 	NEO4J_URI,
-	NEO4J_USER,
+	NEO4J_USERNAME,
 } from "../constants"
 
 // ------------------------------------------------------------------------------------------------
@@ -12,7 +12,7 @@ import {
 
 const driver: Driver = neo4j.driver(
 	NEO4J_URI,
-	neo4j.auth.basic(NEO4J_USER, NEO4J_PASSWORD)
+	neo4j.auth.basic(NEO4J_USERNAME, NEO4J_PASSWORD)
 )
 export const db = driver.session({ database: NEO4J_DATABASE })
 
