@@ -1,11 +1,13 @@
 import { Request, Response } from "express"
 
-export async function ingestRoute(req: Request, res: Response) {
-	console.log("REQUEST:", req.body)
+import { insertDataIntoDB } from "../ingestion/ingest"
+import { processCodebase } from "../ingestion/prepare"
 
-	const query = req.body.query
+const DIR = ["./project"]
+
+export async function ingestRoute(_: Request, res: Response) {
+	const nodes = await processCodebase(DIR.at(-1)!, "ingested")
+	await insertDataIntoDB(nodes)
 
 	res.json("OK")
-
-	// await resolveQuery(query).then((result) => res.json(result))
 }

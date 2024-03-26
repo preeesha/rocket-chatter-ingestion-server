@@ -1,9 +1,10 @@
+import { writeFileSync } from "fs"
 import { Node, Project, SourceFile, ts } from "ts-morph"
 import { DBNode } from "../core/dbNode"
 import { TreeNode, notFoundKindNames } from "../core/treeNode"
 import { RefNode } from "./prepare.types"
 
-const nodes: Record<string, DBNode> = {}
+let nodes: Record<string, DBNode> = {}
 
 const kindNames = new Set<string>()
 const unhandledRefKinds = new Set<string>()
@@ -122,8 +123,10 @@ namespace Algorithms {
 	}
 }
 
-export async function processCodebase(path: string) {
+export async function processCodebase(path: string, filename: string) {
 	console.log("🕒 Ingesting")
+
+	nodes = {}
 
 	const project = new Project()
 	project.addSourceFilesAtPaths(`${path}/**/*.{ts,tsx}`)
@@ -132,6 +135,8 @@ export async function processCodebase(path: string) {
 		.getSourceFiles()
 		.map((x) => Algorithms.processSourceFile(x))
 	await Promise.all(jobs)
+
+	writeFileSync(`${filename}.data.json`, JSON.stringify(nodes, null, 2))
 
 	console.log()
 	console.log()
@@ -143,4 +148,6 @@ export async function processCodebase(path: string) {
 	console.log()
 	console.log()
 	console.log("✅ Ingested")
+
+	return nodes
 }
