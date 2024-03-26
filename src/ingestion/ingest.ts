@@ -20,11 +20,19 @@ namespace Helpers {
 	}
 
 	export async function insertNode(tx: Transaction, node: DBNode) {
-		const query = `CREATE (n:Node $node) RETURN n`
+		const query = `CREATE (n:Node {
+			id: $id,
+			name: $name,
+			kind: $kind,
+			type: $type,
+			text: $text,
+			comments: $comments,
+			filePath: $filePath
+		}) RETURN n`
 		try {
-			await tx.run(query, { node })
+			await tx.run(query, node)
 		} catch (e) {
-			console.error(e)
+			console.error(e, query, node)
 		}
 	}
 
