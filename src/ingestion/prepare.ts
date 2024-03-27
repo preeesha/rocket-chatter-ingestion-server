@@ -129,7 +129,7 @@ export async function processCodebase(path: string, filename: string) {
 	nodes = {}
 
 	const project = new Project()
-	project.addSourceFilesAtPaths(`${path}/**/*.{ts,tsx}`)
+	project.addSourceFilesAtPaths(`${path}/**/*.ts`)
 
 	const jobs = project
 		.getSourceFiles()
@@ -147,7 +147,7 @@ export async function processCodebase(path: string, filename: string) {
 	console.log("UNHANDLED KIND NAMES:\n", notFoundKindNames)
 	console.log()
 	console.log()
-	console.log("✅ Ingested")
+	console.log(`✅ Ingested ${Object.keys(nodes).length} nodes`)
 
 	return nodes
 }
