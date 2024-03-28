@@ -1,5 +1,6 @@
 import { Request, Response } from "express"
 
+import { insertStyleguides } from "../core/styleguides"
 import { insertDataIntoDB } from "../ingestion/ingest"
 import { processCodebase } from "../ingestion/prepare"
 
@@ -10,6 +11,8 @@ export async function ingestRoute(_: Request, res: Response) {
 
 	const nodes = await processCodebase(DIR.at(-1)!, "ingested")
 	await insertDataIntoDB(nodes)
+
+	await insertStyleguides()
 
 	const endTime = Date.now()
 

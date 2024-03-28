@@ -43,6 +43,8 @@ export class DBNode {
 
 	embeddings: number[]
 
+	descriptor: "Node" | string
+
 	constructor(node: {
 		id: string
 		name: string
@@ -53,6 +55,7 @@ export class DBNode {
 		filePath: string
 		relations: { target: string; relation: DBNodeRelation }[]
 		embeddings: number[]
+		descriptor: "Node" | string
 	}) {
 		this.id = node.id
 		this.name = node.name
@@ -66,6 +69,8 @@ export class DBNode {
 		this.relations = node.relations
 
 		this.embeddings = node.embeddings
+
+		this.descriptor = node.descriptor
 	}
 
 	static async fromTreeNode(node: TreeNode): Promise<DBNode> {
@@ -89,6 +94,8 @@ export class DBNode {
 			comments: comments.map((c) => c.trim()),
 
 			filePath: node.node.getSourceFile().getFilePath(),
+
+			descriptor: "Node",
 		})
 
 		return n
@@ -101,7 +108,7 @@ export class DBNode {
 	getDBInsertQuery(): string {
 		let query = ""
 		query += `
-         CREATE (n:Node {
+         CREATE (n:${this.descriptor} {
             id: $id,
             name: $name,
             kind: $kind,
