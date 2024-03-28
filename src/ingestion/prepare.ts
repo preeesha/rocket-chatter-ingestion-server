@@ -6,8 +6,22 @@ import { RefNode } from "./prepare.types"
 
 let nodes: Record<string, DBNode> = {}
 
-const kindNames = new Set<string>()
 const unhandledRefKinds = new Set<string>()
+
+const TRACKED_KINDS = [
+	ts.SyntaxKind.FunctionDeclaration,
+	ts.SyntaxKind.ArrowFunction,
+	ts.SyntaxKind.SourceFile,
+	ts.SyntaxKind.MethodDeclaration,
+	ts.SyntaxKind.PropertyDeclaration,
+	ts.SyntaxKind.ClassDeclaration,
+	ts.SyntaxKind.InterfaceDeclaration,
+	ts.SyntaxKind.ModuleDeclaration,
+	ts.SyntaxKind.TemplateExpression,
+	ts.SyntaxKind.EnumDeclaration,
+	ts.SyntaxKind.TypeAliasDeclaration,
+	ts.SyntaxKind.VariableDeclaration,
+]
 
 namespace Helpers {
 	export function moveUpWhileParentFound(
@@ -28,80 +42,90 @@ namespace Helpers {
 }
 
 namespace Algorithms {
-	async function processRefNode(node: RefNode, fileNode: DBNode) {
+	async function processRefNode(node: Node<ts.Node>, fileNode: DBNode) {
 		const refNode = await DBNode.fromTreeNode(new TreeNode(node))
 		const fnID = refNode.id
 		nodes[fnID] = refNode
 		nodes[fnID].relations.push({
-			relation: "IN_FILE",
+			relation: fileNode.isFile ? "IN_FILE" : "LOCAL_OF",
 			target: fileNode.id,
 		})
 
-		// Find call expressions for this function
-		node.findReferencesAsNodes().forEach((ref) => {
-			kindNames.add(ref.getKindName())
-			switch (ref.getKind()) {
-				case ts.SyntaxKind.ArrowFunction:
-				case ts.SyntaxKind.FunctionDeclaration:
-				case ts.SyntaxKind.FunctionExpression: {
-					const nodeLocation = ref.getFirstAncestorByKind(
-						ts.SyntaxKind.CallExpression
-					)
-					if (!nodeLocation) return
+		// Establish relations between nodes
+		if ((node as any).findReferencesAsNodes) {
+			;(node as RefNode).findReferencesAsNodes().forEach((ref) => {
+				switch (ref.getKind()) {
+					case ts.SyntaxKind.ArrowFunction:
+					case ts.SyntaxKind.FunctionDeclaration:
+					case ts.SyntaxKind.FunctionExpression: {
+						const nodeLocation = ref.getFirstAncestorByKind(
+							ts.SyntaxKind.CallExpression
+						)
+						if (!nodeLocation) return
 
-					const parent = Helpers.moveUpWhileParentFound(nodeLocation, [
-						ts.SyntaxKind.FunctionDeclaration,
-						ts.SyntaxKind.ArrowFunction,
-						ts.SyntaxKind.SourceFile,
-					])
-					if (!parent) return
+						const parent = Helpers.moveUpWhileParentFound(
+							nodeLocation,
+							TRACKED_KINDS
+						)
+						if (!parent) return
 
-					const parentID = new TreeNode(parent).getID()
+						const parentID = new TreeNode(parent).getID()
 
-					const isAlreadyRelated = nodes[fnID].relations.some((rel) => {
-						return rel.target === parentID
-					})
-					if (isAlreadyRelated) return
+						const isAlreadyRelated = nodes[fnID].relations.some((rel) => {
+							return rel.target === parentID
+						})
+						if (isAlreadyRelated) return
 
-					nodes[fnID].relations.push({
-						relation: "CALLED_BY",
-						target: parentID,
-					})
+						nodes[fnID].relations.push({
+							relation: "CALLED_BY",
+							target: parentID,
+						})
 
-					break
+						break
+					}
+
+					case ts.SyntaxKind.Identifier: {
+						const nodeLocation = ref.getFirstAncestor()
+						if (!nodeLocation) return
+
+						const parent = Helpers.moveUpWhileParentFound(
+							nodeLocation,
+							TRACKED_KINDS
+						)
+						if (!parent) return
+
+						const parentID = new TreeNode(parent).getID()
+						const isAlreadyRelated = nodes[fnID].relations.some((rel) => {
+							return rel.target === parentID
+						})
+						if (isAlreadyRelated) return
+
+						nodes[fnID].relations.push({
+							relation: "USED_IN",
+							target: parentID,
+						})
+
+						break
+					}
+
+					default: {
+						unhandledRefKinds.add(ref.getKindName())
+						console.log("Unhandled ref", ref.getKindName())
+					}
 				}
+			})
 
-				case ts.SyntaxKind.Identifier: {
-					const nodeLocation = ref.getFirstAncestor()
-					if (!nodeLocation) return
-
-					const parent = Helpers.moveUpWhileParentFound(nodeLocation, [
-						ts.SyntaxKind.TypeAliasDeclaration,
-						ts.SyntaxKind.FunctionDeclaration,
-						ts.SyntaxKind.ArrowFunction,
-						ts.SyntaxKind.SourceFile,
-					])
-					if (!parent) return
-
-					const parentID = new TreeNode(parent).getID()
-					const isAlreadyRelated = nodes[fnID].relations.some((rel) => {
-						return rel.target === parentID
-					})
-					if (isAlreadyRelated) return
-
-					nodes[fnID].relations.push({
-						relation: "USED_IN",
-						target: parentID,
-					})
-
-					break
-				}
-
-				default: {
-					unhandledRefKinds.add(ref.getKindName())
-					console.log("Unhandled ref", ref.getKindName())
-				}
+			for (const type of TRACKED_KINDS) {
+				;(node as RefNode).getChildrenOfKind(type).forEach((child) => {
+					processRefNode(child, fileNode)
+				})
 			}
+		}
+
+		node.getLocals().forEach((local) => {
+			const declaration = local.getDeclarations()[0]
+			if (!declaration) return
+			processRefNode(declaration, refNode)
 		})
 	}
 
@@ -109,14 +133,9 @@ namespace Algorithms {
 		const fileNode = await DBNode.fromTreeNode(new TreeNode(sourceFile, true))
 		nodes[fileNode.id] = fileNode
 
-		const allNodes = [
-			...sourceFile.getFunctions(),
-			...sourceFile.getTypeAliases(),
-			...sourceFile.getEnums(),
-			...sourceFile.getInterfaces(),
-			...sourceFile.getClasses(),
-			...sourceFile.getNamespaces(),
-		]
+		const allNodes = TRACKED_KINDS.map((kind) =>
+			sourceFile.getDescendantsOfKind(kind)
+		).flat()
 
 		const jobs = allNodes.map((x) => processRefNode(x, fileNode))
 		await Promise.all(jobs)
@@ -139,8 +158,6 @@ export async function processCodebase(path: string, filename: string) {
 	writeFileSync(`${filename}.data.json`, JSON.stringify(nodes, null, 2))
 
 	console.log()
-	console.log()
-	console.log("UNIQUE KIND NAMES:\n", kindNames)
 	console.log()
 	console.log("UNHANDLED REF KIND NAMES:\n", unhandledRefKinds)
 	console.log()

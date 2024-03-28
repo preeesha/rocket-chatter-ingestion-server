@@ -1,4 +1,10 @@
-import { Node, VariableStatement, ts } from "ts-morph"
+import {
+	ImportSpecifier,
+	Node,
+	TemplateExpression,
+	VariableStatement,
+	ts,
+} from "ts-morph"
 
 export const notFoundKindNames = new Set<string>()
 
@@ -16,11 +22,15 @@ export class TreeNode {
 			case ts.SyntaxKind.SourceFile:
 				return this.node.getSourceFile().getBaseName()
 			case ts.SyntaxKind.VariableStatement:
-			case ts.SyntaxKind.ExpressionStatement:
 				return (
 					(this.node as VariableStatement).getDeclarations()?.[0]?.getName() ||
 					""
 				)
+			case ts.SyntaxKind.ArrowFunction:
+			case ts.SyntaxKind.FunctionKeyword:
+			case ts.SyntaxKind.FunctionExpression:
+			case ts.SyntaxKind.Identifier:
+			case ts.SyntaxKind.PropertyAccessExpression:
 			case ts.SyntaxKind.TypeAliasDeclaration:
 			case ts.SyntaxKind.EnumDeclaration:
 			case ts.SyntaxKind.MethodDeclaration:
@@ -31,6 +41,15 @@ export class TreeNode {
 			case ts.SyntaxKind.ClassDeclaration:
 			case ts.SyntaxKind.ModuleDeclaration:
 				return this.node.getSymbol()?.getName() || ""
+			case ts.SyntaxKind.TemplateExpression:
+				return (
+					(this.node as TemplateExpression)
+						.getParent()
+						.getSymbol()
+						?.getName() || ""
+				)
+			case ts.SyntaxKind.ImportSpecifier:
+				return (this.node as ImportSpecifier).getSymbol()?.getName() || ""
 			default:
 				notFoundKindNames.add(this.node.getKindName())
 				return (
@@ -42,11 +61,13 @@ export class TreeNode {
 	getID(): string {
 		const nodeName = this.getName()
 		const kind = this.node.getKind()
+		const lineNumberStart = this.node.getStartLineNumber()
+		const lineNumberEnd = this.node.getEndLineNumber()
 		const filePath = this.node.getSourceFile().getFilePath()
 
 		if (this.isFile) return `${filePath}`
 
-		return `${filePath}:${nodeName}:${kind}`
+		return `${filePath}:${nodeName}:${lineNumberStart}:${lineNumberEnd}:${kind}`
 	}
 
 	getKindName(): string {
@@ -56,6 +77,10 @@ export class TreeNode {
 
 	getType(): string {
 		if (this.isFile) return "File"
-		return this.node.getType().getText() || "any"
+		try {
+			return this.node.getType().getText() || "any"
+		} catch (error) {
+			return "any"
+		}
 	}
 }

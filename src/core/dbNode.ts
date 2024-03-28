@@ -27,7 +27,7 @@ const DBNODE_NAMES_MAP: Record<string, string> = {
 	ModuleDeclaration: "Module",
 }
 
-export type DBNodeRelation = "USED_IN" | "IN_FILE" | "CALLED_BY"
+export type DBNodeRelation = "USED_IN" | "IN_FILE" | "CALLED_BY" | "LOCAL_OF"
 
 export class DBNode {
 	id: string
@@ -43,6 +43,7 @@ export class DBNode {
 
 	embeddings: number[]
 
+	isFile: boolean
 	descriptor: "Node" | string
 
 	constructor(node: {
@@ -56,6 +57,8 @@ export class DBNode {
 		relations: { target: string; relation: DBNodeRelation }[]
 		embeddings: number[]
 		descriptor: "Node" | string
+
+		isFile?: boolean
 	}) {
 		this.id = node.id
 		this.name = node.name
@@ -70,6 +73,7 @@ export class DBNode {
 
 		this.embeddings = node.embeddings
 
+		this.isFile = node.isFile || false
 		this.descriptor = node.descriptor
 	}
 

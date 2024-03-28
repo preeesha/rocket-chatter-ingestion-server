@@ -4,7 +4,10 @@ import {
 	FunctionDeclaration,
 	InterfaceDeclaration,
 	NamespaceDeclaration,
+	Node,
 	TypeAliasDeclaration,
+	VariableDeclaration,
+	ts,
 } from "ts-morph"
 
 export type RefNode =
@@ -14,3 +17,5 @@ export type RefNode =
 	| InterfaceDeclaration
 	| ClassDeclaration
 	| NamespaceDeclaration
+	| VariableDeclaration
+	
