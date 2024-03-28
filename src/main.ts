@@ -15,16 +15,3 @@ app.post("/ingest", ingestRoute)
 app.listen(PORT, () =>
 	console.log(`🚀 Server running on port http://localhost:${PORT}`)
 )
-
-// import { insertDataIntoDB } from "./ingestion/ingest"
-// import { processCodebase } from "./ingestion/prepare"
-
-// const DIR = ["./project", "/home/yogesh/Desktop/Rocket.Chat"]
-
-// async function main() {
-// 	const nodes = await processCodebase(DIR.at(-1)!, "ingested")
-// 	// const nodes = JSON.parse(readFileSync("ingested.data.json", "utf-8"))
-// 	await insertDataIntoDB(nodes)
-// }
-
-// main()
