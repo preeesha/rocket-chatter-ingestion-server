@@ -27,6 +27,8 @@ const DBNODE_NAMES_MAP: Record<string, string> = {
 	ModuleDeclaration: "Module",
 }
 
+export type DBNodeRelation = "USED_IN" | "IN_FILE" | "CALLED_BY"
+
 export class DBNode {
 	id: string
 	name: string
@@ -37,7 +39,7 @@ export class DBNode {
 	comments: string[]
 
 	filePath: string
-	relations: { target: string; relation: string }[]
+	relations: { target: string; relation: DBNodeRelation }[]
 
 	embeddings: number[]
 
@@ -49,7 +51,7 @@ export class DBNode {
 		text: string
 		comments: string[]
 		filePath: string
-		relations: { target: string; relation: string }[]
+		relations: { target: string; relation: DBNodeRelation }[]
 		embeddings: number[]
 	}) {
 		this.id = node.id
