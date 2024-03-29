@@ -1,4 +1,6 @@
 import cliProgress from "cli-progress"
+import { readdirSync } from "fs"
+import { readFile } from "fs/promises"
 import { Transaction } from "neo4j-driver"
 import { DBNode } from "../core/dbNode"
 import { db, verifyConnectivity } from "../core/neo4j"
@@ -48,10 +50,10 @@ namespace Helpers {
 }
 
 namespace Algorithms {
-	export async function emptyDB(tx: Transaction, progressBar: cliProgress.Bar) {
+	export async function emptyDB(progressBar: cliProgress.Bar) {
 		const query = `MATCH (n) DETACH DELETE n`
 		try {
-			await tx.run(query)
+			await db.run(query)
 		} catch {
 			console.error("Failed to empty DB")
 		}
@@ -95,35 +97,43 @@ namespace Algorithms {
 	}
 }
 
-export async function insertDataIntoDB(data: Record<string, DBNode>) {
+export async function insertDataIntoDB(batchSize: number = 50) {
 	console.log(await verifyConnectivity())
 
 	console.log("🕒 Inserting")
 
-	const tx = db.beginTransaction()
-	const nodes = Object.values(data)
-	const totalOperations =
-		nodes.length + nodes.map((x) => x.relations).flat().length + 1
+	const files = readdirSync("./data/embeddings").map(
+		(file) => `./data/embeddings/${file}`
+	)
+	const totalNodes = files.length * batchSize
 
-	// -----------------------------------------------------------------------------------
-
+	const totalOperations = totalNodes * 2 + 1
 	const progressBar = Helpers.prepareProgressBar(totalOperations)
 
-	await Algorithms.emptyDB(tx, progressBar)
-	await Algorithms.insertNodes(tx, nodes, progressBar)
-	await Algorithms.establishRelations(tx, nodes, progressBar)
+	await Algorithms.emptyDB(progressBar)
+
+	for (const file of files) {
+		const data = await readFile(file, "utf-8")
+		const nodes = Object.values(JSON.parse(data)) as DBNode[]
+
+		const tx = db.beginTransaction()
+
+		// -----------------------------------------------------------------------------------
+
+		await Algorithms.insertNodes(tx, nodes, progressBar)
+		await Algorithms.establishRelations(tx, nodes, progressBar)
+
+		// -----------------------------------------------------------------------------------
+
+		try {
+			await tx.commit()
+		} catch (e) {
+			console.error(e)
+			await tx.rollback()
+		}
+	}
 
 	progressBar.stop()
-
-	// -----------------------------------------------------------------------------------
-
-	try {
-		console.log("Committing transaction")
-		await tx.commit()
-	} catch (e) {
-		console.error(e)
-		await tx.rollback()
-	}
 
 	console.log("✅ Inserted")
 }

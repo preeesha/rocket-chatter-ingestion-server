@@ -1,4 +1,4 @@
-import { prepareNodesEmbeddings } from "./ingestion/prepare"
+import { insertDataIntoDB } from "./ingestion/ingest"
 
 const DIR = [
 	//
@@ -12,9 +12,9 @@ async function main() {
 	{
 		const batchSize = 250
 		// await prepareCodebase(DIR.at(-1)!, batchSize)
-		await prepareNodesEmbeddings("data", batchSize)
+		// await prepareNodesEmbeddings("data", batchSize)
 
-		// await insertDataIntoDB(nodes)
+		await insertDataIntoDB(batchSize)
 		// await insertStyleguides()
 	}
 	const endTime = Date.now()
