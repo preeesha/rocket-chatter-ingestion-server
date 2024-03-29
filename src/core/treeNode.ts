@@ -1,6 +1,7 @@
 import {
 	ImportSpecifier,
 	Node,
+	SyntaxKind,
 	TemplateExpression,
 	VariableStatement,
 	ts,
@@ -68,6 +69,11 @@ export class TreeNode {
 		if (this.isFile) return `${filePath}`
 
 		return `${filePath}:${nodeName}:${lineNumberStart}:${lineNumberEnd}:${kind}`
+	}
+
+	getKind(): SyntaxKind {
+		if (this.isFile) return SyntaxKind.SourceFile
+		return this.node.getKind()
 	}
 
 	getKindName(): string {

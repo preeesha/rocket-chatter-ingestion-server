@@ -1,3 +1,5 @@
+import { exit } from "process"
+import { SyntaxKind } from "ts-morph"
 import { LLM } from "./llm"
 import { TreeNode } from "./treeNode"
 
@@ -83,7 +85,16 @@ export class DBNode {
 	static async fromTreeNode(node: TreeNode): Promise<DBNode> {
 		let name = node.getName()
 
-		const contents = node.node.getText().trim()
+		const contents =
+			node.isFile ||
+			[
+				SyntaxKind.SourceFile,
+				SyntaxKind.ModuleDeclaration,
+				SyntaxKind.ModuleDeclaration,
+				SyntaxKind.ClassDeclaration,
+			].includes(node.getKind())
+				? ""
+				: node.node.getText().trim()
 		const comments =
 			node.node.getFullText().match(/\/\*[\s\S]*?\*\/|\/\/.*/g) || []
 
@@ -92,7 +103,18 @@ export class DBNode {
 			relations: [],
 
 			nameEmbeddings: await LLM.generateEmbeddings(name),
-			codeEmbeddings: await LLM.generateEmbeddings(contents),
+			codeEmbeddings: !!contents
+				? await LLM.generateEmbeddings(contents).catch((e) => {
+						console.log("======================================")
+						console.log(node.isFile, node.getKindName(), node.getName())
+						console.log("======================================")
+						console.log(e)
+
+						exit(1)
+
+						return []
+				  })
+				: [],
 
 			name: name,
 			kind: node.getKindName(),
@@ -103,6 +125,7 @@ export class DBNode {
 
 			filePath: node.node.getSourceFile().getFilePath(),
 
+			isFile: node.isFile,
 			descriptor: "Node",
 		})
 
