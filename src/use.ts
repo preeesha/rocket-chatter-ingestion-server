@@ -5,20 +5,25 @@ import { processCodebase } from "./ingestion/prepare"
 
 const DIR = [
 	//
-	"/home/yogesh/Desktop/Rocket.Chat",
 	"./project2",
+	"/home/yogesh/Desktop/Rocket.Chat",
 ]
 
 async function main() {
-	await verifyConnectivity()
+	const startTime = Date.now()
+	{
+		await verifyConnectivity()
+		{
+			const nodes = await processCodebase(DIR.at(-1)!, "ingested")
+			// const nodes = JSON.parse(readFileSync("ingested.data.json", "utf-8"))
+			await insertDataIntoDB(nodes)
+			await insertStyleguides()
+		}
+		closeDBConnection()
+	}
+	const endTime = Date.now()
 
-	const nodes = await processCodebase(DIR.at(-1)!, "ingested")
-
-	// const nodes = JSON.parse(readFileSync("ingested.data.json", "utf-8"))
-	await insertDataIntoDB(nodes)
-
-	await insertStyleguides()
-	closeDBConnection()
+	console.log("🕒 Done in", (endTime - startTime) / 1000, "seconds")
 }
 
 main()
