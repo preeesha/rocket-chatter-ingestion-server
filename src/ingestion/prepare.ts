@@ -109,7 +109,6 @@ namespace Algorithms {
 
 					default: {
 						unhandledRefKinds.add(ref.getKindName())
-						console.log("Unhandled ref", ref.getKindName())
 					}
 				}
 			})
