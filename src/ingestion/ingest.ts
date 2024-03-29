@@ -64,7 +64,7 @@ namespace Algorithms {
 		nodes: DBNode[],
 		progressBar: cliProgress.Bar
 	) {
-		await Promise.all(
+		await Promise.allSettled(
 			nodes.map(async (node) => {
 				await Helpers.insertNode(tx, node)
 				progressBar.increment()
@@ -91,7 +91,7 @@ namespace Algorithms {
 				jobs.push(job)
 			}
 		}
-		await Promise.all(jobs)
+		await Promise.allSettled(jobs)
 	}
 }
 

@@ -34,7 +34,7 @@ async function fetchStyleguide(url: string) {
 }
 
 async function fetchStyleguides(): Promise<Styleguides> {
-	await Promise.all(links.map(fetchStyleguide))
+	await Promise.allSettled(links.map(fetchStyleguide))
 	const result = { ...styleguides }
 	styleguides = {}
 
@@ -70,7 +70,7 @@ export async function insertStyleguides() {
 		const job = transaction.run(node.getDBInsertQuery(), node)
 		jobs.push(job)
 	}
-	await Promise.all(jobs)
+	await Promise.allSettled(jobs)
 
 	await transaction.commit()
 }

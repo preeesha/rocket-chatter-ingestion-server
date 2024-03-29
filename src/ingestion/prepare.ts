@@ -138,7 +138,7 @@ namespace Algorithms {
 		).flat()
 
 		const jobs = allNodes.map((x) => processRefNode(x, fileNode))
-		await Promise.all(jobs)
+		await Promise.allSettled(jobs)
 	}
 }
 
@@ -153,7 +153,7 @@ export async function processCodebase(path: string, filename: string) {
 	const jobs = project
 		.getSourceFiles()
 		.map((x) => Algorithms.processSourceFile(x))
-	await Promise.all(jobs)
+	await Promise.allSettled(jobs)
 
 	writeFileSync(`${filename}.data.json`, JSON.stringify(nodes, null, 2))
 

@@ -36,7 +36,7 @@ export namespace LLM {
 			const items = queue.splice(0, MAX_CALLS_PER_INTERVAL)
 
 			executeCount += items.length
-			console.log(executeCount, items.length, queue.length)
+			console.log("EXECUTING:", executeCount, items.length, queue.length)
 
 			await Promise.allSettled(
 				items.map((x) => async () => {
@@ -61,6 +61,7 @@ export namespace LLM {
 	export async function generateEmbeddings(data: string): Promise<number[]> {
 		return new Promise((resolve) => {
 			if (!data) return resolve(new Array(768).fill(0))
+			console.log("Queueing:", queue.length)
 			queue.push({ data: data.trim(), resolve })
 			executeQueue()
 		})
