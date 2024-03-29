@@ -81,9 +81,8 @@ export class DBNode {
 		this.descriptor = node.descriptor
 	}
 
-	static async fromTreeNode(node: TreeNode): Promise<DBNode> {
+	static fromTreeNode(node: TreeNode): DBNode {
 		let name = node.getName()
-
 		const contents =
 			node.isFile ||
 			[

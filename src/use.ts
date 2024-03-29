@@ -1,23 +1,18 @@
-import { writeFileSync } from "fs"
-import { DBNode } from "./core/dbNode"
-import { insertStyleguides } from "./core/styleguides"
-import { insertDataIntoDB } from "./ingestion/ingest"
-import { prepareCodebase, prepareNodesEmbeddings } from "./ingestion/prepare"
+import { prepareNodesEmbeddings } from "./ingestion/prepare"
 
 const DIR = [
 	//
-	"./project2",
 	"/home/yogesh/Desktop/Rocket.Chat",
+	// "./project",
+	"./project2",
 ]
 
 async function main() {
 	const startTime = Date.now()
 	{
-		let nodes: Record<string, DBNode> = {}
-		nodes = await prepareCodebase(DIR.at(-1)!)
-		writeFileSync("ingested.data.json", JSON.stringify(nodes, null, 2))
-		// nodes = await prepareNodesEmbeddings(nodes)
-		// writeFileSync("embedded.data.json", JSON.stringify(nodes, null, 2))
+		const batchSize = 250
+		// await prepareCodebase(DIR.at(-1)!, batchSize)
+		await prepareNodesEmbeddings("data", batchSize)
 
 		// await insertDataIntoDB(nodes)
 		// await insertStyleguides()

@@ -1,9 +1,15 @@
+import {
+	existsSync,
+	mkdirSync,
+	readFileSync,
+	readdirSync,
+	rmSync,
+	writeFileSync,
+} from "fs"
 import { Node, Project, SourceFile, ts } from "ts-morph"
 import { DBNode } from "../core/dbNode"
 import { TreeNode } from "../core/treeNode"
 import { RefNode } from "./prepare.types"
-
-let nodes: Record<string, DBNode> = {}
 
 const unhandledRefKinds = new Set<string>()
 
@@ -38,11 +44,31 @@ namespace Helpers {
 
 		return moveUpWhileParentFound(parent, allowedParents)
 	}
+
+	export function writeNodesRangeToFile(
+		nodes: Record<string, DBNode>,
+		fileName: string,
+		start: number,
+		end: number
+	) {
+		const entries = Object.entries(nodes).slice(start, end)
+		if (entries.length === 0) return 0
+		const batch = Object.fromEntries(entries)
+		writeFileSync(`data/${fileName}`, JSON.stringify(batch, null, 2))
+
+		return entries.length
+	}
 }
 
+let done = 0
+
 namespace Algorithms {
-	async function processRefNode(node: Node<ts.Node>, fileNode: DBNode) {
-		const refNode = await DBNode.fromTreeNode(new TreeNode(node))
+	async function processRefNode(
+		nodes: Record<string, DBNode>,
+		node: Node<ts.Node>,
+		fileNode: DBNode
+	) {
+		const refNode = DBNode.fromTreeNode(new TreeNode(node))
 		const fnID = refNode.id
 		nodes[fnID] = refNode
 		nodes[fnID].relations.push({
@@ -115,65 +141,140 @@ namespace Algorithms {
 
 			for (const type of TRACKED_KINDS) {
 				;(node as RefNode).getChildrenOfKind(type).forEach((child) => {
-					processRefNode(child, fileNode)
+					processRefNode(nodes, child, fileNode)
 				})
 			}
 		}
 
-		node.getLocals().forEach((local) => {
-			const declaration = local.getDeclarations()[0]
-			if (!declaration) return
-			processRefNode(declaration, refNode)
-		})
+		try {
+			const jobs = node.getLocals().map(async (local) => {
+				const declaration = local.getDeclarations()[0]
+				if (!declaration) return
+				await processRefNode(nodes, declaration, refNode)
+			})
+			await Promise.all(jobs)
+		} catch (e) {
+			console.log(e)
+		}
 	}
 
-	export async function processSourceFile(sourceFile: SourceFile) {
-		const fileNode = await DBNode.fromTreeNode(new TreeNode(sourceFile, true))
+	export async function processSourceFile(
+		nodes: Record<string, DBNode>,
+		sourceFile: SourceFile
+	) {
+		const fileNode = DBNode.fromTreeNode(new TreeNode(sourceFile, true))
 		nodes[fileNode.id] = fileNode
 		const allNodes = TRACKED_KINDS.map((kind) =>
 			sourceFile.getDescendantsOfKind(kind)
 		).flat()
 
-		console.log(
-			`🕒 Processing ${allNodes.length.toString().padStart(3, " ")} nodes in ${
-				fileNode.filePath
-			}`
-		)
-
-		const jobs = allNodes.map((x) => processRefNode(x, fileNode))
+		const jobs = allNodes.map((x) => processRefNode(nodes, x, fileNode))
 		await Promise.all(jobs)
 	}
 }
 
-export async function prepareCodebase(
-	path: string
-): Promise<Record<string, DBNode>> {
+export async function prepareCodebase(path: string, batchSize = 50) {
 	console.log("🕒 Preparing Nodes")
-
-	nodes = {}
 
 	const project = new Project()
 	project.addSourceFilesAtPaths(`${path}/**/*.ts`)
+	const files = project.getSourceFiles().slice(0)
 
-	const jobs = project
-		.getSourceFiles()
-		.map((x) => Algorithms.processSourceFile(x))
-	await Promise.all(jobs)
+	// create directory named data
+	if (existsSync("data")) rmSync("data", { recursive: true })
+	mkdirSync("data")
 
-	console.log(`✅ Prepared ${Object.keys(nodes).length} nodes`)
+	// loop over files in batch of 10
+	let nBatches = 0
+	let nodesProcessed = 0
+	let nOutputFilesProcessed = 0
+	while (nBatches * batchSize < files.length) {
+		let nodes: Record<string, DBNode> = {}
 
-	return nodes
+		const start = nBatches * batchSize
+		const end = Math.min((nBatches + 1) * batchSize, files.length)
+
+		console.log(`\n🕒 Processing ${start}-${end} files`)
+
+		const jobs = files
+			.slice(start, end)
+			.map((x) => Algorithms.processSourceFile(nodes, x))
+		await Promise.all(jobs)
+
+		{
+			/**
+			 * After gathering all the nodes from the files, it's not guranteed that they can't
+			 * be more than `batchSize` nodes. So, we need to split the nodes into batches of
+			 * `batchSize` nodes separately.
+			 */
+			for (
+				let nodeBatchStart = 0;
+				nodeBatchStart < Object.keys(nodes).length;
+				nodeBatchStart += batchSize
+			) {
+				nodesProcessed += Helpers.writeNodesRangeToFile(
+					nodes,
+					`batch-${++nOutputFilesProcessed}.json`,
+					nodeBatchStart,
+					nodeBatchStart + batchSize
+				)
+			}
+		}
+
+		++nBatches
+
+		console.log(`✅ Processed ${start}-${end} files\n`)
+	}
+
+	console.log(`✅ Prepared ${nodesProcessed} nodes`)
 }
 
-export async function prepareNodesEmbeddings(
-	nodes: Record<string, DBNode>
-): Promise<Record<string, DBNode>> {
+export async function prepareNodesEmbeddings(dir: string, nodesPerFile = 50) {
 	console.log("🕒 Preparing Embeddings")
 
-	const jobs = Object.values(nodes).map((x) => DBNode.fillEmbeddings(x))
-	await Promise.all(jobs)
+	if (existsSync("data/embeddings"))
+		rmSync("data/embeddings", { recursive: true })
+	mkdirSync("data/embeddings")
 
-	console.log(`✅ Prepared embeddings for ${Object.keys(nodes).length} nodes`)
+	const files = readdirSync(dir)
+		.filter((x) => x.endsWith(".json"))
+		.map((x) => `${dir}/${x}`)
 
-	return nodes
+	const embeddingsPerNode = 2
+	const maxAllowedEmbeddingsPerMinute = 2800
+	const nFilesPerBatch = Math.floor(
+		maxAllowedEmbeddingsPerMinute / nodesPerFile / embeddingsPerNode
+	)
+
+	let batch = 0
+	for (let i = 0; i < files.length; i += nFilesPerBatch) {
+		const start = i
+		const end = Math.min(i + nFilesPerBatch, files.length)
+
+		console.log(`\n🕒 Embedding ${start}-${end} files`)
+
+		let nodes: Record<string, DBNode> = {}
+		for (const file of files.slice(start, end)) {
+			const data = JSON.parse(readFileSync(file, "utf-8"))
+			nodes = { ...nodes, ...data }
+		}
+
+		console.log(Object.values(nodes).length)
+		const jobs = Object.values(nodes).map(async (x) => {
+			nodes[x.id] = await DBNode.fillEmbeddings(new DBNode(x))
+		})
+		await Promise.all(jobs)
+
+		writeFileSync(
+			`data/embeddings/batch-${++batch}.json`,
+			JSON.stringify(nodes, null, 2)
+		)
+
+		console.log(`✅ Embedded ${start}-${end} files\n`)
+
+		console.log(`🕒 Waiting for 60 seconds`)
+		await new Promise((resolve) => setTimeout(resolve, 60 * 1000))
+	}
+
+	console.log(`✅ Prepared embeddings for nodes`)
 }

@@ -1,5 +1,5 @@
 import {
-	ImportSpecifier,
+	BindingElement,
 	Node,
 	SyntaxKind,
 	TemplateExpression,
@@ -35,12 +35,16 @@ export class TreeNode {
 			case ts.SyntaxKind.TypeAliasDeclaration:
 			case ts.SyntaxKind.EnumDeclaration:
 			case ts.SyntaxKind.MethodDeclaration:
-			case ts.SyntaxKind.FunctionDeclaration:
 			case ts.SyntaxKind.VariableDeclaration:
+			case ts.SyntaxKind.FunctionDeclaration:
 			case ts.SyntaxKind.InterfaceDeclaration:
 			case ts.SyntaxKind.PropertyDeclaration:
 			case ts.SyntaxKind.ClassDeclaration:
 			case ts.SyntaxKind.ModuleDeclaration:
+			case ts.SyntaxKind.Parameter:
+			case ts.SyntaxKind.TypeParameter:
+			case ts.SyntaxKind.ThisKeyword:
+			case ts.SyntaxKind.ImportSpecifier:
 				return this.node.getSymbol()?.getName() || ""
 			case ts.SyntaxKind.TemplateExpression:
 				return (
@@ -49,8 +53,8 @@ export class TreeNode {
 						.getSymbol()
 						?.getName() || ""
 				)
-			case ts.SyntaxKind.ImportSpecifier:
-				return (this.node as ImportSpecifier).getSymbol()?.getName() || ""
+			case ts.SyntaxKind.BindingElement:
+				return (this.node as BindingElement).getName()
 			default:
 				notFoundKindNames.add(this.node.getKindName())
 				return (
