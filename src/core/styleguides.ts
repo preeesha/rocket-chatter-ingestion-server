@@ -59,11 +59,12 @@ export async function insertStyleguides() {
 			name: filePath,
 			kind: "File",
 			type: "",
-			text: data,
+			code: data,
 			comments: [],
 			filePath: filePath,
 			relations: [],
-			embeddings: [],
+			nameEmbeddings: [],
+			codeEmbeddings: [],
 			descriptor: "Styleguide",
 		})
 		const job = transaction.run(node.getDBInsertQuery(), node)

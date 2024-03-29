@@ -35,13 +35,14 @@ export class DBNode {
 	kind: string
 	type: string
 
-	text: string
+	code: string
 	comments: string[]
 
 	filePath: string
 	relations: { target: string; relation: DBNodeRelation }[]
 
-	embeddings: number[]
+	nameEmbeddings: number[]
+	codeEmbeddings: number[]
 
 	isFile: boolean
 	descriptor: "Node" | string
@@ -51,11 +52,12 @@ export class DBNode {
 		name: string
 		kind: string
 		type: string
-		text: string
+		code: string
 		comments: string[]
 		filePath: string
 		relations: { target: string; relation: DBNodeRelation }[]
-		embeddings: number[]
+		nameEmbeddings: number[]
+		codeEmbeddings: number[]
 		descriptor: "Node" | string
 
 		isFile?: boolean
@@ -65,13 +67,14 @@ export class DBNode {
 		this.kind = node.kind
 		this.type = node.type
 
-		this.text = node.text
+		this.code = node.code
 		this.comments = node.comments
 
 		this.filePath = node.filePath
 		this.relations = node.relations
 
-		this.embeddings = node.embeddings
+		this.nameEmbeddings = node.nameEmbeddings
+		this.codeEmbeddings = node.codeEmbeddings
 
 		this.isFile = node.isFile || false
 		this.descriptor = node.descriptor
@@ -88,13 +91,14 @@ export class DBNode {
 			id: node.getID(),
 			relations: [],
 
-			embeddings: await LLM.generateEmbeddings(name),
+			nameEmbeddings: await LLM.generateEmbeddings(name),
+			codeEmbeddings: await LLM.generateEmbeddings(contents),
 
 			name: name,
 			kind: node.getKindName(),
 			type: node.getType(),
 
-			text: contents,
+			code: contents,
 			comments: comments.map((c) => c.trim()),
 
 			filePath: node.node.getSourceFile().getFilePath(),
@@ -117,11 +121,12 @@ export class DBNode {
             name: $name,
             kind: $kind,
             type: $type,
-            text: $text,
+            code: $code,
             comments: $comments,
             filePath: $filePath,
 
-            embeddings: $embeddings
+            nameEmbeddings: $nameEmbeddings,
+            codeEmbeddings: $codeEmbeddings
          })
       `
 

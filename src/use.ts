@@ -6,7 +6,7 @@ import { processCodebase } from "./ingestion/prepare"
 const DIR = [
 	//
 	"/home/yogesh/Desktop/Rocket.Chat",
-	"./project2",
+	"./project",
 ]
 
 async function main() {

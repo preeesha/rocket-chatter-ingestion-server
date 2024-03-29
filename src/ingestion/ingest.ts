@@ -20,17 +20,7 @@ namespace Helpers {
 	}
 
 	export async function insertNode(tx: Transaction, node: DBNode) {
-		const query = `CREATE (n:Node {
-			id: $id,
-			name: $name,
-			kind: $kind,
-			type: $type,
-			text: $text,
-			comments: $comments,
-			filePath: $filePath,
-
-			embeddings: $embeddings
-		}) RETURN n`
+		const query = new DBNode(node).getDBInsertQuery()
 		try {
 			await tx.run(query, node)
 		} catch (e) {
