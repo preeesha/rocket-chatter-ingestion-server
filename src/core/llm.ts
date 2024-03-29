@@ -38,7 +38,7 @@ export namespace LLM {
 			executeCount += items.length
 			console.log("EXECUTING:", executeCount, items.length, queue.length)
 
-			await Promise.allSettled(
+			await Promise.all(
 				items.map((x) => async () => {
 					try {
 						const content = await openai.embeddings.create({
@@ -61,7 +61,6 @@ export namespace LLM {
 	export async function generateEmbeddings(data: string): Promise<number[]> {
 		return new Promise((resolve) => {
 			if (!data) return resolve(new Array(768).fill(0))
-			console.log("Queueing:", queue.length)
 			queue.push({ data: data.trim(), resolve })
 			executeQueue()
 		})

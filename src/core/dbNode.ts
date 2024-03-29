@@ -1,4 +1,3 @@
-import { exit } from "process"
 import { SyntaxKind } from "ts-morph"
 import { LLM } from "./llm"
 import { TreeNode } from "./treeNode"
@@ -102,19 +101,8 @@ export class DBNode {
 			id: node.getID(),
 			relations: [],
 
-			nameEmbeddings: await LLM.generateEmbeddings(name),
-			codeEmbeddings: !!contents
-				? await LLM.generateEmbeddings(contents).catch((e) => {
-						console.log("======================================")
-						console.log(node.isFile, node.getKindName(), node.getName())
-						console.log("======================================")
-						console.log(e)
-
-						exit(1)
-
-						return []
-				  })
-				: [],
+			nameEmbeddings: [],
+			codeEmbeddings: [],
 
 			name: name,
 			kind: node.getKindName(),
@@ -130,6 +118,13 @@ export class DBNode {
 		})
 
 		return n
+	}
+
+	static async fillEmbeddings(node: DBNode): Promise<DBNode> {
+		node.nameEmbeddings = await LLM.generateEmbeddings(node.name)
+		node.codeEmbeddings = await LLM.generateEmbeddings(node.code)
+
+		return node
 	}
 
 	getNodeName(): string {

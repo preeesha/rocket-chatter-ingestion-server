@@ -1,7 +1,8 @@
-import { closeDBConnection, verifyConnectivity } from "./core/neo4j"
+import { writeFileSync } from "fs"
+import { DBNode } from "./core/dbNode"
 import { insertStyleguides } from "./core/styleguides"
 import { insertDataIntoDB } from "./ingestion/ingest"
-import { processCodebase } from "./ingestion/prepare"
+import { prepareCodebase, prepareNodesEmbeddings } from "./ingestion/prepare"
 
 const DIR = [
 	//
@@ -12,14 +13,14 @@ const DIR = [
 async function main() {
 	const startTime = Date.now()
 	{
-		await verifyConnectivity()
-		{
-			const nodes = await processCodebase(DIR.at(-1)!, "ingested")
-			// const nodes = JSON.parse(readFileSync("ingested.data.json", "utf-8"))
-			await insertDataIntoDB(nodes)
-			await insertStyleguides()
-		}
-		closeDBConnection()
+		let nodes: Record<string, DBNode> = {}
+		nodes = await prepareCodebase(DIR.at(-1)!)
+		writeFileSync("ingested.data.json", JSON.stringify(nodes, null, 2))
+		// nodes = await prepareNodesEmbeddings(nodes)
+		// writeFileSync("embedded.data.json", JSON.stringify(nodes, null, 2))
+
+		// await insertDataIntoDB(nodes)
+		// await insertStyleguides()
 	}
 	const endTime = Date.now()
 

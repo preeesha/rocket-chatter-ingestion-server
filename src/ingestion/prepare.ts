@@ -1,7 +1,6 @@
-import { writeFileSync } from "fs"
 import { Node, Project, SourceFile, ts } from "ts-morph"
 import { DBNode } from "../core/dbNode"
-import { TreeNode, notFoundKindNames } from "../core/treeNode"
+import { TreeNode } from "../core/treeNode"
 import { RefNode } from "./prepare.types"
 
 let nodes: Record<string, DBNode> = {}
@@ -132,18 +131,25 @@ namespace Algorithms {
 	export async function processSourceFile(sourceFile: SourceFile) {
 		const fileNode = await DBNode.fromTreeNode(new TreeNode(sourceFile, true))
 		nodes[fileNode.id] = fileNode
-
 		const allNodes = TRACKED_KINDS.map((kind) =>
 			sourceFile.getDescendantsOfKind(kind)
 		).flat()
 
+		console.log(
+			`🕒 Processing ${allNodes.length.toString().padStart(3, " ")} nodes in ${
+				fileNode.filePath
+			}`
+		)
+
 		const jobs = allNodes.map((x) => processRefNode(x, fileNode))
-		await Promise.allSettled(jobs)
+		await Promise.all(jobs)
 	}
 }
 
-export async function processCodebase(path: string, filename: string) {
-	console.log("🕒 Ingesting")
+export async function prepareCodebase(
+	path: string
+): Promise<Record<string, DBNode>> {
+	console.log("🕒 Preparing Nodes")
 
 	nodes = {}
 
@@ -153,18 +159,22 @@ export async function processCodebase(path: string, filename: string) {
 	const jobs = project
 		.getSourceFiles()
 		.map((x) => Algorithms.processSourceFile(x))
-	await Promise.allSettled(jobs)
+	await Promise.all(jobs)
 
-	writeFileSync(`${filename}.data.json`, JSON.stringify(nodes, null, 2))
+	console.log(`✅ Prepared ${Object.keys(nodes).length} nodes`)
 
-	console.log()
-	console.log()
-	console.log("UNHANDLED REF KIND NAMES:\n", unhandledRefKinds)
-	console.log()
-	console.log("UNHANDLED KIND NAMES:\n", notFoundKindNames)
-	console.log()
-	console.log()
-	console.log(`✅ Ingested ${Object.keys(nodes).length} nodes`)
+	return nodes
+}
+
+export async function prepareNodesEmbeddings(
+	nodes: Record<string, DBNode>
+): Promise<Record<string, DBNode>> {
+	console.log("🕒 Preparing Embeddings")
+
+	const jobs = Object.values(nodes).map((x) => DBNode.fillEmbeddings(x))
+	await Promise.all(jobs)
+
+	console.log(`✅ Prepared embeddings for ${Object.keys(nodes).length} nodes`)
 
 	return nodes
 }
