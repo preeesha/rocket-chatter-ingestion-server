@@ -6,6 +6,7 @@ import {
 	VariableStatement,
 	ts,
 } from "ts-morph"
+import { Commons } from "./commons"
 
 export const notFoundKindNames = new Set<string>()
 
@@ -63,12 +64,19 @@ export class TreeNode {
 		}
 	}
 
+	getFilePath(): string {
+		return this.node
+			.getSourceFile()
+			.getFilePath()
+			.slice(Commons.getProjectPath().length)
+	}
+
 	getID(): string {
+		const filePath = this.getFilePath()
 		const nodeName = this.getName()
-		const kind = this.node.getKind()
 		const lineNumberStart = this.node.getStartLineNumber()
 		const lineNumberEnd = this.node.getEndLineNumber()
-		const filePath = this.node.getSourceFile().getFilePath()
+		const kind = this.node.getKind()
 
 		if (this.isFile) return `${filePath}`
 

@@ -1,4 +1,5 @@
 import { SyntaxKind } from "ts-morph"
+import { Commons } from "./commons"
 import { LLM } from "./llm"
 import { TreeNode } from "./treeNode"
 
@@ -105,12 +106,12 @@ export class DBNode {
 
 			name: name,
 			kind: node.getKindName(),
-			type: node.getType(),
+			type: node.getType().replace(Commons.getProjectPath(), ""),
 
 			code: contents,
 			comments: comments.map((c) => c.trim()),
 
-			filePath: node.node.getSourceFile().getFilePath(),
+			filePath: node.getFilePath(),
 
 			isFile: node.isFile,
 			descriptor: "Node",

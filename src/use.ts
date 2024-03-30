@@ -6,7 +6,7 @@ const DIR = [
 	//
 	"/home/yogesh/Desktop/Rocket.Chat",
 	// "./project",
-	"./project2",
+	"./project",
 ]
 
 async function main() {

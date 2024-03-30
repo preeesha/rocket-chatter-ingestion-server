@@ -6,7 +6,9 @@ import {
 	rmSync,
 	writeFileSync,
 } from "fs"
+import path from "path"
 import { Node, Project, SourceFile, ts } from "ts-morph"
+import { Commons } from "../core/commons"
 import { DBNode } from "../core/dbNode"
 import { TreeNode } from "../core/treeNode"
 import { RefNode } from "./prepare.types"
@@ -173,11 +175,13 @@ namespace Algorithms {
 	}
 }
 
-export async function prepareCodebase(path: string, batchSize = 50) {
+export async function prepareCodebase(projectPath: string, batchSize = 50) {
+	Commons.setProjectPath(path.resolve(projectPath))
+
 	console.log("🕒 Preparing Nodes")
 
 	const project = new Project()
-	project.addSourceFilesAtPaths(`${path}/**/*.ts`)
+	project.addSourceFilesAtPaths(`${projectPath}/**/*.ts`)
 	const files = project.getSourceFiles().slice(0)
 
 	// create directory named data
