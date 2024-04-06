@@ -190,17 +190,19 @@ export async function prepareCodebase(
 	const files = project.getSourceFiles().slice(startFrom)
 
 	// create directory named data
-	if (startFrom === 0 && existsSync("data")) rmSync("data", { recursive: true })
-	mkdirSync("data")
+	if (startFrom === 0 && existsSync("data")) {
+		rmSync("data", { recursive: true })
+		mkdirSync("data")
+	}
 
 	let nBatches = startFrom
 	let nodesProcessed = 0
 	let nOutputFilesProcessed = 0
-	while (nBatches * batchSize < files.length) {
+	while (nBatches * batchSize < startFrom + files.length) {
 		let nodes: Record<string, DBNode> = {}
 
 		const start = nBatches * batchSize
-		const end = Math.min((nBatches + 1) * batchSize, files.length)
+		const end = Math.min((nBatches + 1) * batchSize, startFrom + files.length)
 
 		console.log(`\n🕒 Processing ${start}-${end} files`)
 
