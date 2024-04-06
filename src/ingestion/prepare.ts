@@ -175,21 +175,25 @@ namespace Algorithms {
 	}
 }
 
-export async function prepareCodebase(projectPath: string, batchSize = 50) {
+export async function prepareCodebase(
+	projectPath: string,
+	batchSize = 50,
+	startFrom: number = 0
+) {
 	Commons.setProjectPath(path.resolve(projectPath))
 
 	console.log("🕒 Preparing Nodes")
 
 	const project = new Project()
 	project.addSourceFilesAtPaths(`${projectPath}/**/*.ts`)
-	const files = project.getSourceFiles().slice(0)
+	console.log("🟢 TOTAL FILES:", project.getSourceFiles().length)
+	const files = project.getSourceFiles().slice(startFrom)
 
 	// create directory named data
-	if (existsSync("data")) rmSync("data", { recursive: true })
+	if (startFrom === 0 && existsSync("data")) rmSync("data", { recursive: true })
 	mkdirSync("data")
 
-	// loop over files in batch of 10
-	let nBatches = 0
+	let nBatches = startFrom
 	let nodesProcessed = 0
 	let nOutputFilesProcessed = 0
 	while (nBatches * batchSize < files.length) {
@@ -200,10 +204,14 @@ export async function prepareCodebase(projectPath: string, batchSize = 50) {
 
 		console.log(`\n🕒 Processing ${start}-${end} files`)
 
-		const jobs = files
-			.slice(start, end)
-			.map((x) => Algorithms.processSourceFile(nodes, x))
-		await Promise.all(jobs)
+		try {
+			const jobs = files
+				.slice(start, end)
+				.map((x) => Algorithms.processSourceFile(nodes, x))
+			await Promise.all(jobs)
+		} catch {
+			console.error(`Error in processing ${start}-${end} files`)
+		}
 
 		{
 			/**
