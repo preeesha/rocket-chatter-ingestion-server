@@ -3,3 +3,5 @@ node_modules/
 /project*/
 .env
 data/
+
+./Rocket.Chat

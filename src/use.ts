@@ -4,15 +4,18 @@ import { prepareCodebase, prepareNodesEmbeddings } from "./ingestion/prepare"
 
 const DIR = [
 	//
-	"/home/yogesh/Desktop/Rocket.Chat",
 	// "./project",
-	"./project",
+	"./Rocket.Chat", // clone the repo first
 ]
 
 async function main() {
 	const startTime = Date.now()
 	{
-		const batchSize = 250
+		/**
+		 * Keep it 1 for low memory usage and hence no crashes.
+		 * Higher batch size might cause the program to get stuck and eventually crash.
+		 */
+		const batchSize = 1
 		await prepareCodebase(DIR.at(-1)!, batchSize)
 		await prepareNodesEmbeddings("data", batchSize)
 
